@@ -8,16 +8,16 @@ from settings import REDIS_URL
 import uuid 
 import asyncio
 
-async def fake_cad_worker(ctx, job):
-    job_id = job.get("job_id", str(uuid.uuid4()))
+async def fake_cad_worker(ctx, job_id, coin_text):
 
-    print('f"[{job_id}] generating CAD...')
+    print(f"[{job_id}] Generating CAD with text '{coin_text}'...")
     await asyncio.sleep(5)
     print('f"[{job_id}] CAD complete')
 
     return {
         "status": "success",
-        "job_id": job_id
+        "job_id": job_id,
+        "coin_text": coin_text
     }
 
 class WorkerSettings:
