@@ -1,0 +1,220 @@
+version: "3.9"
+
+# ── Shared environment fragments ──────────────────────────────────────────────
+# Referenced with &anchor syntax so values stay DRY.
+# Any service that needs Redis imports x-redis-env.
+x-redis-env: &redis-env
+  REDIS_URL: redis://redis:6379
+
+x-shared-volumes: &shared-volumes
+  - ./workers/shared:/app/shared   # injects shared state.py + settings.py
+  - ./logs:/logs                   # all workers write logs to one place
+
+# ─────────────────────────────────────────────────────────────────────────────
+services:
+
+  # ── Redis ───────────────────────────────────────────────────────────────────
+  # Single Redis instance serves as both the ARQ job queue and the key/value
+  # state store (job:{id}:status, job:{id}:model_path, etc.).
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    # appendonly yes: write-ahead log so the queue survives a Redis restart.
+    # maxmemory + allkeys-lru: evict least-recently-used keys if RAM fills up.
+    # Adjust maxmemory to fit your host — 256mb is conservative.
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data             # persists the AOF log across restarts
+    ports:
+      - "6379:6379"                  # expose for local debugging; remove in production
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── FastAPI ─────────────────────────────────────────────────────────────────
+  # Front door for the pipeline. Receives form data from the Google Apps Script
+  # webhook, creates job IDs, writes initial state to Redis, and enqueues the
+  # first ARQ job (generate_model). Also exposes GET /jobs/{id} for status.
+  api:
+    build:
+      context: ./fastapi_app
+      dockerfile: Dockerfile
+    container_name: api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      <<: *redis-env
+      LOG_LEVEL: info
+    volumes:
+      - *shared-volumes
+      - ./fastapi_app:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # ── CadQuery worker ─────────────────────────────────────────────────────────
+  # Listens for generate_model jobs. Runs CadQuery (CPU-bound) inside a
+  # ProcessPoolExecutor via loop.run_in_executor() so the ARQ event loop stays
+  # unblocked. Writes the .stl file to the models volume, stores the path in
+  # Redis, then enqueues slice_model for the slicer worker.
+  worker-cadquery:
+    build:
+      context: ./workers/cadquery
+      dockerfile: Dockerfile
+    container_name: worker-cadquery
+    restart: unless-stopped
+    command: arq worker.WorkerSettings
+    environment:
+      <<: *redis-env
+      LOG_LEVEL: info
+    volumes:
+      - *shared-volumes
+      - model_files:/models          # writes .stl files here
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # ── Slicer worker ────────────────────────────────────────────────────────────
+  # Listens for slice_model jobs. Reads the .stl from the models volume, runs
+  # the slicer (e.g. PrusaSlicer CLI), writes the .gcode to the gcode volume,
+  # stores the path in Redis, then enqueues send_to_printer.
+  worker-slicer:
+    build:
+      context: ./workers/slicer
+      dockerfile: Dockerfile
+    container_name: worker-slicer
+    restart: unless-stopped
+    command: arq worker.WorkerSettings
+    environment:
+      <<: *redis-env
+      LOG_LEVEL: info
+      # Path to PrusaSlicer binary inside the container.
+      # Override this if your slicer is installed at a different path.
+      SLICER_BIN: /usr/bin/prusa-slicer
+      # Path to your .ini printer profile, mounted from the host.
+      SLICER_PROFILE: /profiles/printer.ini
+    volumes:
+      - *shared-volumes
+      - model_files:/models          # reads .stl files
+      - gcode_files:/gcode           # writes .gcode files
+      - ./profiles:/profiles:ro      # slicer printer profiles (read-only)
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # ── PrusaLink worker ─────────────────────────────────────────────────────────
+  # Listens for send_to_printer jobs. Uploads the .gcode file to the printer via
+  # the PrusaLink HTTP API, then polls every 30 seconds (using asyncio.sleep so
+  # the event loop stays free) until the print is finished. Only then enqueues
+  # robot_handoff. job_timeout is set to 7200s (2h) to accommodate long prints.
+  worker-prusalink:
+    build:
+      context: ./workers/prusalink
+      dockerfile: Dockerfile
+    container_name: worker-prusalink
+    restart: unless-stopped
+    command: arq worker.WorkerSettings
+    environment:
+      <<: *redis-env
+      LOG_LEVEL: info
+      # IP of your Prusa printer on the local network.
+      # The container reaches LAN devices through Docker's default bridge.
+      PRUSA_IP: 192.168.1.50
+      PRUSA_API_KEY: ${PRUSA_API_KEY}   # set in .env file, never hard-code
+    volumes:
+      - *shared-volumes
+      - gcode_files:/gcode             # reads .gcode files to upload
+    depends_on:
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      # Lets you use "prusa-printer" as a hostname inside the container.
+      # Replace with your printer's actual static LAN IP.
+      - "prusa-printer:192.168.1.50"
+
+  # ── Robot worker ─────────────────────────────────────────────────────────────
+  # Listens for robot_handoff jobs. Connects to the Niryo arm over TCP using
+  # PyNiryo — no ROS2 required. max_jobs=1 in WorkerSettings ensures only one
+  # physical handoff runs at a time. PyNiryo calls are synchronous, so they run
+  # in a ThreadPoolExecutor via run_in_executor(). job_timeout=120s.
+  worker-niryo:
+    build:
+      context: ./workers/niryo
+      dockerfile: Dockerfile
+    container_name: worker-niryo
+    restart: unless-stopped
+    command: arq worker.WorkerSettings
+    environment:
+      <<: *redis-env
+      LOG_LEVEL: info
+      # Static LAN IP of the Niryo Ned arm.
+      NIRYO_IP: 192.168.1.100
+    volumes:
+      - *shared-volumes
+    depends_on:
+      redis:
+        condition: service_healthy
+    extra_hosts:
+      # Lets you use "niryo-ned" as a hostname inside the container.
+      # Replace with your robot's actual static LAN IP.
+      - "niryo-ned:192.168.1.100"
+
+  # ── Ngrok ────────────────────────────────────────────────────────────────────
+  # Exposes the FastAPI service to the internet so the Google Apps Script webhook
+  # can POST form submissions to it. Set NGROK_AUTHTOKEN in your .env file.
+  # The public URL is printed in the ngrok container logs on startup:
+  #   docker compose logs ngrok
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: ngrok
+    restart: unless-stopped
+    command: http api:8000 --log=stdout
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}   # set in .env file
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "4040:4040"                  # ngrok local web UI for inspecting requests
+
+# ── Named volumes ─────────────────────────────────────────────────────────────
+# Docker manages where these live on the host (usually /var/lib/docker/volumes/).
+# Both model_files and gcode_files are mounted into multiple containers so
+# workers can read what the previous stage wrote — no copying or network transfer.
+#
+#   model_files:  written by worker-cadquery (.stl), read by worker-slicer
+#   gcode_files:  written by worker-slicer (.gcode), read by worker-prusalink
+#   redis_data:   Redis AOF persistence log
+#   logs:         unified log directory across all workers
+#
+# To inspect volume contents from the host:
+#   docker run --rm -v robotics_model_files:/data alpine ls /data
+volumes:
+  model_files:
+    name: robotics_model_files
+  gcode_files:
+    name: robotics_gcode_files
+  redis_data:
+    name: robotics_redis_data
+  logs:
+    name: robotics_logs
+
+# ── Networks ──────────────────────────────────────────────────────────────────
+# All services share the default bridge network created by Compose, which means:
+#   - Containers reach each other by service name (redis, api, etc.)
+#   - Containers can reach LAN devices (Niryo arm, Prusa printer) by LAN IP
+#   - No inbound LAN access to containers (Ngrok handles that)
+# No custom network config is needed for this topology.
