@@ -6,8 +6,10 @@ import os
 from contextlib import asynccontextmanager
 import uuid
 
+
 app = None
 arq_pool = None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -27,10 +29,11 @@ async def get_arq_pool():
         )
         return arq_pool
 
-        
-@app.get("/")
-async def root():
-    return {"message": "Hello World!"}
+
+@app.get("/jobs/{job_id}/status")
+async def get_job_status(job_id: str):
+    status = await get_value(redis, job_id, "status")
+    return {"job_id": job_id, "status": status}
 
 
 async def _enqueue_checkin_job(payload: CheckinPayload) -> None:

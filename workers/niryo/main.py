@@ -8,12 +8,16 @@ from settings import REDIS_URL
 import uuid 
 import asyncio
 
+#---------
+# STAGE 4
+#---------
+
 async def fake_niryo_worker(ctx, job):
     job_id = job.get("job_id", str(uuid.uuid4()))
 
     print('f"[{job_id}] moving robot...')
     await asyncio.sleep(5)
-    print('f"[{job_id}] action complete')
+    print('f"[{job_id}] action complete. Sequence finished.')
 
     return {
         "status": "success",

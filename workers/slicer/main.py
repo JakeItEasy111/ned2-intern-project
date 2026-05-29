@@ -8,12 +8,21 @@ from settings import REDIS_URL
 import uuid 
 import asyncio
 
+#---------
+# STAGE 2 
+#---------
+
 async def fake_slicer_worker(ctx, job):
     job_id = job.get("job_id", str(uuid.uuid4()))
 
     print('f"[{job_id}] slicing STL...')
     await asyncio.sleep(5)
     print('f"[{job_id}] slice complete')
+
+    new_job_id = str(uuid.uuid4())[:8]
+
+    redis = ctx["redis"]
+    await redis.enqueue_job("fake_prusalink_worker", new_job_id)
 
     return {
         "status": "success",
