@@ -12,7 +12,7 @@ import asyncio
 # STAGE 1 
 #---------
 
-async def fake_cad_worker(ctx, job_id, coin_text):
+async def fake_cadquery_worker(ctx, job_id, coin_text):
 
     print(f"[{job_id}] Generating CAD with text '{coin_text}'...")
     await asyncio.sleep(5)
