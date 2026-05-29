@@ -22,7 +22,7 @@ async def fake_prusalink_worker(ctx, job):
     new_job_id = str(uuid.uuid4())[:8]
 
     redis = ctx["redis"]
-    await redis.enqueue_job("fake_niryo_worker", new_job_id)
+    await redis.enqueue_job("fake_niryo_worker", new_job_id, _queue_name="niryo")
 
     return {
         "status": "success",
@@ -31,6 +31,7 @@ async def fake_prusalink_worker(ctx, job):
 
 class WorkerSettings:
     functions = [fake_prusalink_worker]  # list every job this worker handles
+    queue_name = "prusalink"
 
     # parsed from REDIS_URL: host, port, password, db
     redis_settings = RedisSettings.from_dsn(REDIS_URL)

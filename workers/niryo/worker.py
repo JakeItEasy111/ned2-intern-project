@@ -26,6 +26,7 @@ async def fake_niryo_worker(ctx, job):
 
 class WorkerSettings:
     functions = [fake_niryo_worker]  # list every job this worker handles
+    queue_name = "niryo"
 
     # parsed from REDIS_URL: host, port, password, db
     redis_settings = RedisSettings.from_dsn(REDIS_URL)

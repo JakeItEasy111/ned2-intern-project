@@ -6,8 +6,10 @@ from state import set_status, set_value
 import uuid
 import logging
 
+
 app = None
 logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -18,7 +20,9 @@ async def lifespan(app: FastAPI):
     await close_arq_pool()
     logger.info("Redis connection closed.")
 
+
 app = FastAPI(lifespan=lifespan)
+
 
 @app.get("/jobs/{job_id}/status")
 async def get_job_status(job_id: str):
@@ -40,7 +44,7 @@ async def _enqueue_checkin_job(payload: CheckinPayload) -> None:
     await set_value(pool, job_id, "badge_id",   payload.badge_id)
 
     try:
-        await pool.enqueue_job("fake_cadquery_worker", job_id, coin_text)
+        await pool.enqueue_job("fake_cadquery_worker", job_id, coin_text, _queue_name="cadquery")
     except Exception:
         logger.info("Failed to enqueue generate_model job.")
         return {"job_id":job_id, "status":"failed"}
