@@ -7,3 +7,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . . 
+
+# Add /app/shared to Python's search path so `from state import ...` works
+# without any sys.path hacks inside the source files.
+ENV PYTHONPATH="/workers/shared:${PYTHONPATH}"

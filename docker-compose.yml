@@ -1,14 +1,9 @@
-version: "3.9"
 
 # ── Shared environment fragments ──────────────────────────────────────────────
 # Referenced with &anchor syntax so values stay DRY.
 # Any service that needs Redis imports x-redis-env.
 x-redis-env: &redis-env
   REDIS_URL: redis://redis:6379
-
-x-shared-volumes: &shared-volumes
-  - ./workers/shared:/app/shared   # injects shared state.py + settings.py
-  - ./logs:/logs                   # all workers write logs to one place
 
 # ─────────────────────────────────────────────────────────────────────────────
 services:
@@ -54,8 +49,9 @@ services:
       <<: *redis-env
       LOG_LEVEL: info
     volumes:
-      - *shared-volumes
-      - ./fastapi_app:/app
+     - ./workers/shared:/workers/shared
+     - ./logs:/log
+     - ./fastapi_app:/app
     depends_on:
       redis:
         condition: service_healthy
@@ -81,8 +77,9 @@ services:
       <<: *redis-env
       LOG_LEVEL: info
     volumes:
-      - *shared-volumes
-      - model_files:/models          # writes .stl files here
+     - ./workers/shared:/workers/shared
+     - ./logs:/log
+     - model_files:/models
     depends_on:
       redis:
         condition: service_healthy
@@ -107,10 +104,11 @@ services:
       # Path to your .ini printer profile, mounted from the host.
       SLICER_PROFILE: /profiles/printer.ini
     volumes:
-      - *shared-volumes
-      - model_files:/models          # reads .stl files
-      - gcode_files:/gcode           # writes .gcode files
-      - ./profiles:/profiles:ro      # slicer printer profiles (read-only)
+     - ./workers/shared:/workers/shared
+     - ./logs:/log
+     - ./models:/models          # reads .stl files
+     - ./gcode:/gcode           # writes .gcode files
+     - ./profiles:/profiles:ro      # slicer printer profiles (read-only)
     depends_on:
       redis:
         condition: service_healthy
@@ -135,8 +133,9 @@ services:
       PRUSA_IP: 192.168.1.50
       PRUSA_API_KEY: ${PRUSA_API_KEY}   # set in .env file, never hard-code
     volumes:
-      - *shared-volumes
-      - gcode_files:/gcode             # reads .gcode files to upload
+     - ./workers/shared:/workers/shared
+     - ./logs:/log
+     - ./gcode:/gcode
     depends_on:
       redis:
         condition: service_healthy
@@ -163,7 +162,8 @@ services:
       # Static LAN IP of the Niryo Ned arm.
       NIRYO_IP: 192.168.1.100
     volumes:
-      - *shared-volumes
+     - ./workers/shared:/workers/shared
+     - ./logs:/log
     depends_on:
       redis:
         condition: service_healthy

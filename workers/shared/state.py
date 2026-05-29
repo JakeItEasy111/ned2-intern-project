@@ -1,5 +1,5 @@
 from arq import ArqRedis
-from .settings import job_key
+from settings import job_key
 
 # called at the start of each stage
 async def set_status(redis: ArqRedis, job_id: str, status: str):

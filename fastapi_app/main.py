@@ -1,34 +1,24 @@
 from fastapi import FastAPI, BackgroundTasks, status
 from models import CheckinPayload
-from arq import create_pool
-from arq.connections import RedisSettings
-import os
+from arq_queue import get_arq_pool, close_arq_pool
 from contextlib import asynccontextmanager
+from state import set_status, set_value
 import uuid
-
+import logging
 
 app = None
-arq_pool = None
-
+logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.info("Connecting to redis")
     await get_arq_pool()  # warm up connection
+    logger.info("Redis connection ready.")
     yield
+    await close_arq_pool()
+    logger.info("Redis connection closed.")
 
 app = FastAPI(lifespan=lifespan)
-
-
-async def get_arq_pool():
-    global arq_pool
-    if arq_pool is None:
-        arq_pool = await create_pool(
-            RedisSettings.from_dsn(
-                os.getenv("REDIS_URL", "redis://redis:6379")
-            )
-        )
-        return arq_pool
-
 
 @app.get("/jobs/{job_id}/status")
 async def get_job_status(job_id: str):
@@ -44,12 +34,18 @@ async def _enqueue_checkin_job(payload: CheckinPayload) -> None:
     coin_text = f"{payload.first_name} {payload.last_name}"
 
     await set_status(pool, job_id, "queued")
-    await set_value(pool, job_id, "coin_text", coin_text)
+    await set_value(pool, job_id, "email",      payload.email)
+    await set_value(pool, job_id, "first_name", payload.first_name)
+    await set_value(pool, job_id, "last_name",  payload.last_name)
+    await set_value(pool, job_id, "badge_id",   payload.badge_id)
 
-    await pool.enqueue_job("fake_cadquery_worker", job_id, coin_text)
-
-    print(f"[stub] enqueue job: {payload.first_name} {payload.last_name} | badge={payload.badge_id}")
-
+    try:
+        await pool.enqueue_job("fake_cadquery_worker", job_id, coin_text)
+    except Exception:
+        logger.info("Failed to enqueue generate_model job.")
+        return {"job_id":job_id, "status":"failed"}
+    
+    logger.info("Enqueued generate_model job %s for %s", job_id, payload.email)
     return {"job_id":job_id, "status":"queued"}
 
 

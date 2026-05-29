@@ -2,4 +2,4 @@ fastapi
 uvicorn[standard]
 pydantic
 arq
-redis
+redis[hiredis]
