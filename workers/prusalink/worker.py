@@ -12,8 +12,7 @@ import asyncio
 # STAGE 3 
 #---------
 
-async def fake_prusalink_worker(ctx, job):
-    job_id = job.get("job_id", str(uuid.uuid4()))
+async def fake_prusalink_worker(ctx, job_id):
 
     print('f"[{job_id}] ordering print...')
     await asyncio.sleep(5)
