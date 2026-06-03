@@ -14,9 +14,9 @@ import asyncio
 
 async def fake_niryo_worker(ctx, job_id):
 
-    print('f"[{job_id}] moving robot...')
+    print(f"[{job_id}] moving robot...")
     await asyncio.sleep(5)
-    print('f"[{job_id}] action complete. Sequence finished.')
+    print(f"[{job_id}] action complete. Sequence finished.")
 
     return {
         "status": "success",

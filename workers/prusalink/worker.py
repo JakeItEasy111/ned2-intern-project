@@ -14,9 +14,9 @@ import asyncio
 
 async def fake_prusalink_worker(ctx, job_id):
 
-    print('f"[{job_id}] ordering print...')
+    print(f"[{job_id}] ordering print...")
     await asyncio.sleep(5)
-    print('f"[{job_id}] print complete')
+    print(f"[{job_id}] print complete")
 
     new_job_id = str(uuid.uuid4())[:8]
 

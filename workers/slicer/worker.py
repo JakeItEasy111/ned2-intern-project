@@ -14,9 +14,9 @@ import asyncio
 
 async def fake_slicer_worker(ctx, job_id):
 
-    print('f"[{job_id}] slicing STL...')
+    print(f"[{job_id}] slicing STL...")
     await asyncio.sleep(5)
-    print('f"[{job_id}] slice complete')
+    print(f"[{job_id}] slice complete")
 
     new_job_id = str(uuid.uuid4())[:8]
 

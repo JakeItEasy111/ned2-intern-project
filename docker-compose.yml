@@ -101,8 +101,8 @@ services:
     volumes:
      - ./workers/shared:/workers/shared
      - ./logs:/log
-     - ./models:/models          # reads .stl files
-     - ./gcode:/gcode           # writes .gcode files
+     - model_files:/models          # reads .stl files
+     - gcode_files:/gcode           # writes .gcode files
      - ./profiles:/profiles:ro      # slicer printer profiles (read-only)
     depends_on:
       redis:
@@ -130,7 +130,7 @@ services:
     volumes:
      - ./workers/shared:/workers/shared
      - ./logs:/log
-     - ./gcode:/gcode
+     - gcode_files:/gcode
     depends_on:
       redis:
         condition: service_healthy
@@ -187,11 +187,11 @@ services:
 
 # ── Named volumes ─────────────────────────────────────────────────────────────
 # Docker manages where these live on the host (usually /var/lib/docker/volumes/).
-# Both model_files and gcode_files are mounted into multiple containers so
+# Both models and gcode are mounted into multiple containers so
 # workers can read what the previous stage wrote — no copying or network transfer.
 #
-#   model_files:  written by worker-cadquery (.stl), read by worker-slicer
-#   gcode_files:  written by worker-slicer (.gcode), read by worker-prusalink
+#   models:  written by worker-cadquery (.stl), read by worker-slicer
+#   gcode:  written by worker-slicer (.gcode), read by worker-prusalink
 #   redis_data:   Redis AOF persistence log
 #   logs:         unified log directory across all workers
 #

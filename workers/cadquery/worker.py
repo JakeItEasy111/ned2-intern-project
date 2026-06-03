@@ -7,6 +7,8 @@ from state import set_status, set_value
 from settings import REDIS_URL
 import uuid 
 import asyncio
+import cadquery as cq 
+from cadquery import exporters
 
 #---------
 # STAGE 1 
@@ -15,8 +17,17 @@ import asyncio
 async def fake_cad_worker(ctx, job_id, coin_text):
 
     print(f"[{job_id}] Generating CAD with text '{coin_text}'...")
-    await asyncio.sleep(5)
-    print('f"[{job_id}] CAD complete')
+    coin = cq.Workplane("XY").circle(30).extrude(5).faces(">Z").workplane().text(coin_text, fontsize=3, distance=1).extrude(1)
+    
+    exporters.export(
+        coin,
+        f"/models/{job_id}.stl",
+        exporters.ExportTypes.STL, 
+        tolerance=0.001, 
+        angularTolerance=0.1, 
+        ascii=False
+    )
+    print(f"[{job_id}] CAD saved to /models/{job_id}.stl")
 
     new_job_id = str(uuid.uuid4())[:8]
 

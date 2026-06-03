@@ -9,7 +9,9 @@ import logging
 
 app = None
 logger = logging.getLogger(__name__)
-
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+logger.addHandler(console_handler)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -27,6 +29,7 @@ app = FastAPI(lifespan=lifespan)
 @app.get("/jobs/{job_id}/status")
 async def get_job_status(job_id: str):
     status = await get_value(redis, job_id, "status")
+    logger.info("Checked status of job %s: %s", job_id, status)
     return {"job_id": job_id, "status": status}
 
 
