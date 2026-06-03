@@ -29,10 +29,8 @@ async def fake_cad_worker(ctx, job_id, coin_text):
     )
     print(f"[{job_id}] CAD saved to /models/{job_id}.stl")
 
-    new_job_id = str(uuid.uuid4())[:8]
-
     redis = ctx["redis"]
-    await redis.enqueue_job("fake_slicer_worker", new_job_id, _queue_name="slicer")
+    await redis.enqueue_job("fake_slicer_worker", job_id, _queue_name="slicer")
 
     return {
         "status": "success",

@@ -7,6 +7,8 @@ from state import set_status, set_value
 from settings import REDIS_URL
 import uuid 
 import asyncio
+import subprocess
+
 
 #---------
 # STAGE 2 
@@ -18,10 +20,8 @@ async def fake_slicer_worker(ctx, job_id):
     await asyncio.sleep(5)
     print(f"[{job_id}] slice complete")
 
-    new_job_id = str(uuid.uuid4())[:8]
-
     redis = ctx["redis"]
-    await redis.enqueue_job("fake_prusalink_worker", new_job_id, _queue_name="prusalink")
+    await redis.enqueue_job("fake_prusalink_worker", job_id, _queue_name="prusalink")
 
     return {
         "status": "success",

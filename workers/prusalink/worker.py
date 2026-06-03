@@ -18,10 +18,8 @@ async def fake_prusalink_worker(ctx, job_id):
     await asyncio.sleep(5)
     print(f"[{job_id}] print complete")
 
-    new_job_id = str(uuid.uuid4())[:8]
-
     redis = ctx["redis"]
-    await redis.enqueue_job("fake_niryo_worker", new_job_id, _queue_name="niryo")
+    await redis.enqueue_job("fake_niryo_worker", job_id, _queue_name="niryo")
 
     return {
         "status": "success",
