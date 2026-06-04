@@ -12,14 +12,14 @@ import asyncio
 # STAGE 3 
 #---------
 
-async def fake_prusalink_worker(ctx, job_id):
+async def prusalink_job(ctx, job_id):
 
     print(f"[{job_id}] ordering print...")
     await asyncio.sleep(5)
     print(f"[{job_id}] print complete")
 
     redis = ctx["redis"]
-    await redis.enqueue_job("fake_niryo_worker", job_id, _queue_name="niryo")
+    await redis.enqueue_job("niryo_robot_job", job_id, _queue_name="niryo")
 
     return {
         "status": "success",

@@ -47,7 +47,7 @@ async def _enqueue_checkin_job(payload: CheckinPayload) -> None:
     await set_value(pool, job_id, "badge_id",   payload.badge_id)
 
     try:
-        await pool.enqueue_job("fake_cad_worker", job_id, coin_text, _queue_name="cadquery")
+        await pool.enqueue_job("cad_job", job_id, coin_text, _queue_name="cadquery")
     except Exception:
         logger.info("Failed to enqueue generate_model job.")
         return {"job_id":job_id, "status":"failed"}

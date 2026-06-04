@@ -12,7 +12,7 @@ import asyncio
 # STAGE 4
 #---------
 
-async def fake_niryo_worker(ctx, job_id):
+async def niryo_robot_job(ctx, job_id):
 
     print(f"[{job_id}] moving robot...")
     await asyncio.sleep(5)

@@ -14,7 +14,7 @@ from cadquery import exporters
 # STAGE 1 
 #---------
 
-async def fake_cad_worker(ctx, job_id, coin_text):
+async def cad_job(ctx, job_id, coin_text):
 
     print(f"[{job_id}] Generating CAD with text '{coin_text}'...")
     coin = cq.Workplane("XY").circle(30).extrude(5).faces(">Z").workplane().text(coin_text, fontsize=3, distance=1).extrude(1)
@@ -30,7 +30,7 @@ async def fake_cad_worker(ctx, job_id, coin_text):
     print(f"[{job_id}] CAD saved to /models/{job_id}.stl")
 
     redis = ctx["redis"]
-    await redis.enqueue_job("fake_slicer_worker", job_id, _queue_name="slicer")
+    await redis.enqueue_job("slicer_job", job_id, _queue_name="slicer")
 
     return {
         "status": "success",
