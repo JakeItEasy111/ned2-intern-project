@@ -62,3 +62,7 @@ async def checkin(payload: CheckinPayload, background_tasks: BackgroundTasks):
     background_tasks.add_task(_enqueue_checkin_job, payload)
 
     return {"status": "received"}
+
+@app.get("/health", status_code=200)
+async def health_check():
+    return {"status": "healthy"}

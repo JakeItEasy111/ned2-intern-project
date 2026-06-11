@@ -24,7 +24,7 @@ async def niryo_robot_job(ctx, job_id):
     }
 
 class WorkerSettings:
-    functions = [fake_niryo_worker]  # list every job this worker handles
+    functions = [niryo_robot_job]  # list every job this worker handles
     queue_name = "niryo"
 
     # parsed from REDIS_URL: host, port, password, db

@@ -1,4 +1,7 @@
 
+import sys
+sys.path.insert(0, "/app/shared")  # make shared/ importable
+
 from compas_slicer.post_processing import generate_brim, simplify_paths_rdp, seams_smooth
 from compas_slicer.print_organization import PlanarPrintOrganizer, set_extruder_toggle
 from compas_slicer.post_processing import generate_medial_axis_infill
@@ -8,14 +11,13 @@ from compas_slicer.slicers import PlanarSlicer
 from compas_slicer.config import GcodeConfig
 from compas.datastructures import Mesh
 from compas.geometry import Point
+
 from arq.connections import RedisSettings
-sys.path.insert(0, "/app/shared")  # make shared/ importable
 from state import set_status, set_value
 from settings import REDIS_URL
 from pathlib import Path
 from arq import ArqRedis
 import asyncio
-import sys
 
 #---------
 # STAGE 2 
@@ -74,7 +76,7 @@ async def slicer_job(ctx, job_id):
     }
 
 
-def configure_gcode_config():
+async def configure_gcode_config():
 
     gcode_config = GcodeConfig(
         layer_height=MK4_CONFIG['LAYER_HEIGHT'],
@@ -117,9 +119,9 @@ def configure_gcode_config():
     return gcode_config
 
 
-def slice_stl_to_gcode(mesh, gcode_config, stl_path, filename):
+async def slice_stl_to_gcode(mesh, gcode_config, stl_path, filename):
     # Slicing
-    slicer = PlanarSlicer(mesh, layer_height=MK4_CONFIG['LAYER_HEIGHT'])
+    slicer = PlanarSlicer(mesh, slicer_type='cgal', layer_height=MK4_CONFIG['LAYER_HEIGHT'])
     slicer.slice_model()
 
     # Post processing 

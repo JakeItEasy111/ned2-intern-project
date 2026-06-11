@@ -1,3 +1,7 @@
 arq
 redis
-compas_slicer
+compas>=2.0
+compas_cgal
+matplotlib
+pyclipper>=1.3.0.post6
+https://github.com/compas-dev/compas_slicer/archive/refs/heads/master.zip

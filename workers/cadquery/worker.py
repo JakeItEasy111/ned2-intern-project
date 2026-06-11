@@ -40,7 +40,7 @@ async def cad_job(ctx, job_id, coin_text):
 
 
 class WorkerSettings:
-    functions = [fake_cad_worker]  # list every job this worker handles
+    functions = [cad_job]  # list every job this worker handles
     queue_name = "cadquery"
 
     # parsed from REDIS_URL: host, port, password, db

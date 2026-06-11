@@ -27,7 +27,7 @@ async def prusalink_job(ctx, job_id):
     }
 
 class WorkerSettings:
-    functions = [fake_prusalink_worker]  # list every job this worker handles
+    functions = [prusalink_job]  # list every job this worker handles
     queue_name = "prusalink"
 
     # parsed from REDIS_URL: host, port, password, db

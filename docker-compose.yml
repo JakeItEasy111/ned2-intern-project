@@ -55,6 +55,12 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
   # ── CadQuery worker ─────────────────────────────────────────────────────────
   # Listens for generate_model jobs. Runs CadQuery (CPU-bound) inside a
